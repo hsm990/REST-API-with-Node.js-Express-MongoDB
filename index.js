@@ -41,6 +41,6 @@ app.use((err, req, res, next) => {
 })
 
 
-app.listen(process.env.PORT, () => {
+app.listen(process.env.PORT || 3000, () => {
     console.log("listen to port ", process.env.PORT)
 })
