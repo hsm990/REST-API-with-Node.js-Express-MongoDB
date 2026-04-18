@@ -9,7 +9,7 @@ const allowedTo = require('../middleware/allowedTo')
 
 
 router.route('/')
-    .get(verfiyToken, coursesMethod.getCoursses)
+    .get(coursesMethod.getCoursses)
     .post(verfiyToken, validation(), allowedTo(userRoles.ADMIN, userRoles.MANAGER), coursesMethod.createCourse)
 
 
