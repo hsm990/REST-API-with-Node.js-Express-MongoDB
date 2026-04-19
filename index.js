@@ -7,9 +7,12 @@ const mongoose = require('mongoose')
 const cors = require('cors')
 const usersRouter = require('./routes/users.route')
 const User = require('./models/users.model')
+const cookieParser = require('cookie-parser')
 
 
 
+
+app.use(cookieParser())
 app.use(express.json())
 const url = process.env.MONGO_URL;
 mongoose.connect(url).then(async () => {
@@ -17,7 +20,9 @@ mongoose.connect(url).then(async () => {
     await User.init()
 })
 
-app.use(cors())
+app.use(cors({
+    credentials: true
+}))
 app.use('/api/courses', coursesRouter)
 app.use('/api/users', usersRouter)
 

@@ -85,6 +85,12 @@ const logInUser = asyncWrapper(async (req, res, next) => {
         return next(new appErorr('password is wrong', 400, httpStatus.FAIL))
     }
     const token = generateJwt({ email: email, role: user.role })
+    res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production', // true in production only
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60 * 1000 // 1 day
+    })
     return res.json({
         status: "success",
         data: {
