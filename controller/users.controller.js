@@ -94,7 +94,7 @@ const logInUser = asyncWrapper(async (req, res, next) => {
     return res.json({
         status: "success",
         data: {
-            token: token
+            role: user.role
         }
     })
 })
