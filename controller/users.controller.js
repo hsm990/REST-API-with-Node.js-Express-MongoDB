@@ -54,6 +54,12 @@ const addUser = asyncWrapper(async (req, res, next) => {
 
     const token = generateJwt({ email: newUser.email, role: newUser.role })
     newUser.token = token
+    res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production', // true in production only
+        sameSite: 'none',
+        maxAge: 24 * 60 * 60 * 1000 // 1 day
+    })
     await newUser.save()
     res.status(201).json({
         status: httpStatus.SUCCESS,
@@ -61,7 +67,7 @@ const addUser = asyncWrapper(async (req, res, next) => {
             user: {
                 firstName: newUser.firstName,
                 lastName: newUser.lastName,
-                token: token
+                role: newUser.role
             },
             data: {
                 message: "user created"
