@@ -1,7 +1,6 @@
 const User = require('../models/users.model')
 const asyncWrapper = require('../middleware/asyncWrapper')
 const httpStatus = require('../utils/httpStatus')
-const appErorr = require('../utils/appError')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const generateJwt = require('../utils/generateJwt')
@@ -10,8 +9,8 @@ const cloudinary = require('../config/cloudinary')
 
 const getAllUsers = asyncWrapper(async (req, res, next) => {
     const users = await User.find({}, { '__v': false, 'password': false, '_id': false })
-    if (!users) {
-        return next(new appErorr('there is no users', 404, httpStatus.FAIL))
+    if (users.length === 0) {
+        return next(new AppError('there is no users', 404, httpStatus.FAIL))
     }
     return res.json({
         status: httpStatus.SUCCESS,
@@ -25,7 +24,7 @@ const addUser = asyncWrapper(async (req, res, next) => {
     const { firstName, lastName, email, password } = req.body
     const oldUser = await User.findOne({ email: email })
     if (oldUser) {
-        return next(new appErorr('user with this email already exist', 400, httpStatus.FAIL))
+        return next(new AppError('user with this email already exist', 400, httpStatus.FAIL))
 
     }
 
@@ -52,22 +51,24 @@ const addUser = asyncWrapper(async (req, res, next) => {
         avatar: avatarUrl
     })
 
-    const token = generateJwt({ email: newUser.email, role: newUser.role })
-    newUser.token = token
-    res.cookie('token', token, {
+    await newUser.save()
+
+    const accessToken = generateJwt({ id: newUser._id, role: newUser.role }, '1m')
+    const refreshToken = generateJwt({ id: newUser._id, role: newUser.role }, '10m')
+    res.cookie('token', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // true in production only
-        sameSite: 'none',
-        maxAge: 24 * 60 * 60 * 1000 // 1 day
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 10 * 60 * 1000 // 10 minute
     })
-    await newUser.save()
     res.status(201).json({
         status: httpStatus.SUCCESS,
         data: {
             user: {
                 firstName: newUser.firstName,
                 lastName: newUser.lastName,
-                role: newUser.role
+                role: newUser.role,
+                token: accessToken
             },
             data: {
                 message: "user created"
@@ -83,24 +84,26 @@ const logInUser = asyncWrapper(async (req, res, next) => {
     const password = req.body.password
     const user = await User.findOne({ email: email })
     if (!user) {
-        return next(new appErorr('there no user  with credentials', 404, httpStatus.FAIL))
+        return next(new AppError('there no user  with credentials', 404, httpStatus.FAIL))
     }
 
     const matchPassword = await bcrypt.compare(password, user.password)
     if (!matchPassword) {
-        return next(new appErorr('password is wrong', 400, httpStatus.FAIL))
+        return next(new AppError('password is wrong', 400, httpStatus.FAIL))
     }
-    const token = generateJwt({ email: email, role: user.role })
-    res.cookie('token', token, {
+    const accessToken = generateJwt({ id: user._id, role: user.role }, '1m')
+    const refreshToken = generateJwt({ id: user._id, role: user.role }, '10m')
+    res.cookie('token', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // true in production only
-        sameSite: 'none',
-        maxAge: 24 * 60 * 60 * 1000 // 1 day
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 10 * 60 * 1000 // 10 minute
     })
     return res.json({
         status: "success",
         data: {
-            role: user.role
+            role: user.role,
+            token: accessToken
         }
     })
 })
@@ -122,10 +125,37 @@ const changeRole = asyncWrapper(async (req, res, next) => {
         }
     })
 })
+
+const refresh = asyncWrapper(async (req, res, next) => {
+    const cookies = req.cookies
+    if (!cookies?.token) {
+        return next(new AppError('unauthorized', 401, httpStatus.FAIL))
+    }
+    let decodToken
+    try {
+        decodToken = jwt.verify(cookies.token, process.env.JWT_SECRET_KEY)
+    } catch (err) {
+        return next(new AppError('invalid or expired token', 403, httpStatus.FAIL))
+    }
+    const user = await User.findById(decodToken.id)
+    if (!user) {
+        return next(new AppError('user not found', 404, httpStatus.FAIL))
+    }
+    const accessToken = generateJwt({ id: user._id, role: user.role }, '1m')
+    res.status(200).json({
+        status: httpStatus.SUCCESS,
+        data: {
+            token: accessToken
+        }
+    })
+})
+
+
 module.exports = {
     getAllUsers,
     addUser,
     logInUser,
-    changeRole
+    changeRole,
+    refresh
 
 }

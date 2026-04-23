@@ -19,4 +19,6 @@ router.route('/login')
 
 router.route('/changerole')
     .post(verfiyToken, allowedTo(userRoles.ADMIN), userMethod.changeRole)
+router.route('/refresh')
+    .get(userMethod.refresh)
 module.exports = router
