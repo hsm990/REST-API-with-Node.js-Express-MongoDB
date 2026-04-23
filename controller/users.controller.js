@@ -150,12 +150,28 @@ const refresh = asyncWrapper(async (req, res, next) => {
     })
 })
 
+const logout = asyncWrapper(async (req, res, next) => {
+    const cookies = req.cookies
+    if (!cookies?.token) {
+        return next(new AppError('no content', 404, httpStatus.FAIL))
+    }
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    })
+    return res.status(200).json({
+        status: httpStatus.SUCCESS,
+        message: 'Logged out successfully'
+    })
+})
 
 module.exports = {
     getAllUsers,
     addUser,
     logInUser,
     changeRole,
-    refresh
+    refresh,
+    logout
 
 }
