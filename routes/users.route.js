@@ -4,7 +4,7 @@ const userMethod = require('../controller/users.controller')
 const verfiyToken = require('../middleware/verifyJwt')
 const allowedTo = require('../middleware/allowedTo')
 const userRoles = require('../utils/users.role')
-
+const { logInLimiter } = require('../middleware/rateLimiter')
 const upload = require('../middleware/uploadImage')
 
 
@@ -15,7 +15,7 @@ router.route('/register')
     .post(upload.single('avatar'), userMethod.addUser)
 
 router.route('/login')
-    .post(userMethod.logInUser)
+    .post(logInLimiter, userMethod.logInUser)
 
 router.route('/changerole')
     .post(verfiyToken, allowedTo(userRoles.ADMIN), userMethod.changeRole)
