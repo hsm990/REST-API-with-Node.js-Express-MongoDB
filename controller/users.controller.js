@@ -59,7 +59,8 @@ const addUser = asyncWrapper(async (req, res, next) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // true in production only
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 10 * 60 * 1000 // 10 minute
+        maxAge: 10 * 60 * 1000, // 10 minute,
+        path: '/'
     })
     res.status(201).json({
         status: httpStatus.SUCCESS,
@@ -97,7 +98,8 @@ const logInUser = asyncWrapper(async (req, res, next) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // true in production only
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 10 * 60 * 1000 // 10 minute
+        maxAge: 10 * 60 * 1000,
+        path: '/'
     })
     return res.json({
         status: "success",
