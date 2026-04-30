@@ -96,8 +96,8 @@ const logInUser = asyncWrapper(async (req, res, next) => {
     const refreshToken = generateJwt({ id: user._id, role: user.role }, '10m')
     res.cookie('token', refreshToken, {
         httpOnly: true,
-        secure: false, // true in production only
-        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production', // true in production only
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: 10 * 60 * 1000,
         path: '/'
     })
