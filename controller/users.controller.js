@@ -97,7 +97,7 @@ const logInUser = asyncWrapper(async (req, res, next) => {
     res.cookie('token', refreshToken, {
         httpOnly: true,
         secure: false, // true in production only
-        sameSite: 'none',
+        sameSite: 'lax',
         maxAge: 10 * 60 * 1000,
         path: '/'
     })
