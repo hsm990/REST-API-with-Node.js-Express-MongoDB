@@ -19,7 +19,10 @@ mongoose.connect(url).then(async () => {
     console.log('connect with data base successfully')
     await User.init()
 })
-
+app.use('/api', (req, res, next) => {
+    res.set('Cache-Control', 'no-store')
+    next()
+})
 app.use(cors({
     origin: 'http://localhost:5173',
     credentials: true

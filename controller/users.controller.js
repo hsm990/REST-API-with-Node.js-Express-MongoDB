@@ -92,8 +92,8 @@ const logInUser = asyncWrapper(async (req, res, next) => {
     if (!matchPassword) {
         return next(new AppError('password is wrong', 400, httpStatus.FAIL))
     }
-    const accessToken = generateJwt({ id: user._id, role: user.role }, '1m')
-    const refreshToken = generateJwt({ id: user._id, role: user.role }, '10m')
+    const accessToken = generateJwt({ id: user._id, role: user.role }, '30')
+    const refreshToken = generateJwt({ id: user._id, role: user.role }, '7d')
     res.cookie('token', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // true in production only
