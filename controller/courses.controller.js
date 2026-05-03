@@ -4,86 +4,87 @@ const httpStatus = require('../utils/httpStatus')
 const asyncWrapper = require('../middleware/asyncWrapper')
 const AppError = require('../utils/appError')
 
-
-
-const getCoursses = asyncWrapper(async (req, res, next) => {
-    const query = req.query
-    const page = query.page || 1
-    const limit = query.limit || 1
+// GET /courses?page=1&limit=10
+const getCourses = asyncWrapper(async (req, res) => {
+    const page = Math.max(1, parseInt(req.query.page) || 1)
+    const limit = Math.max(1, parseInt(req.query.limit) || 10)
     const skip = (page - 1) * limit
-    const courses = await Course.find({}, { '__v': false }, { limit: limit, skip: skip })
-    if (!courses) {
-        return next(new AppError("there is no courses yet", 400, httpStatus.FAIL))
-    }
+
+    const [courses, total] = await Promise.all([
+        Course.find({}, { __v: false }, { skip, limit }),
+        Course.countDocuments()
+    ])
+
     return res.json({
         status: httpStatus.SUCCESS,
         data: {
-            courses: [...courses]
+            courses,
+            pagination: { page, limit, total, pages: Math.ceil(total / limit) }
         }
     })
 })
-const getSpecificCourse = asyncWrapper(async (req, res, next) => {
 
-    const data = await Course.findById(req.params.id)
-    if (!data) {
+// GET /courses/:id
+const getSpecificCourse = asyncWrapper(async (req, res, next) => {
+    const course = await Course.findById(req.params.id, { __v: false })
+    if (!course) {
         return next(new AppError('course not found', 404, httpStatus.FAIL))
     }
     return res.status(200).json({
         status: httpStatus.SUCCESS,
-        data: {
-            course: data
-        }
+        data: { course }
     })
 })
+
+// POST /courses
 const createCourse = asyncWrapper(async (req, res, next) => {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
         return next(new AppError(errors.array()[0].msg, 400, httpStatus.FAIL))
     }
-    const addedCourse = new Course(req.body)
-    await addedCourse.save()
-    res.status(201).json({
-        status: httpStatus.SUCCESS,
-        data: {
-            course: addedCourse
-        }
-    })
 
+    // Destructure only the fields your schema expects
+    const { title, description, price, instructor } = req.body
+    const course = new Course({ title, description, price, instructor })
+    await course.save()
+
+    return res.status(201).json({
+        status: httpStatus.SUCCESS,
+        data: { course }
+    })
 })
+
+// PATCH /courses/:id
 const updateCourse = asyncWrapper(async (req, res, next) => {
+    // FIX: one query instead of two — findByIdAndUpdate returns null if not found
+    const updatedCourse = await Course.findByIdAndUpdate(
+        req.params.id,
+        { ...req.body },
+        { new: true, runValidators: true, projection: { __v: false } }
+    )
 
-    const courseToUpdate = await Course.findById(req.params.id)
-    if (!courseToUpdate) {
+    if (!updatedCourse) {
         return next(new AppError('course not found', 404, httpStatus.FAIL))
     }
-    const updatedCourse = await Course.findByIdAndUpdate(req.params.id, { ...req.body }, { returnDocument: 'after', runValidators: true })
+
     return res.status(200).json({
         status: httpStatus.SUCCESS,
-        data: {
-            oldCourse: courseToUpdate,
-            newCourse: updatedCourse
-        }
+        data: { course: updatedCourse }
     })
-
-
 })
-const deleteCourse = asyncWrapper(async (req, res, next) => {
-    const deletedCourse = await Course.findByIdAndDelete(req.params.id);
 
-    if (!deletedCourse) {
+// DELETE /courses/:id
+const deleteCourse = asyncWrapper(async (req, res, next) => {
+    const deleted = await Course.findByIdAndDelete(req.params.id)
+    if (!deleted) {
         return next(new AppError('course not found', 404, httpStatus.FAIL))
     }
 
+    // FIX: don't leak the full document — just confirm deletion
     return res.status(200).json({
         status: httpStatus.SUCCESS,
-        data: deletedCourse
-    });
-
+        message: 'course deleted successfully'
+    })
 })
-module.exports = {
-    getCoursses,
-    getSpecificCourse,
-    createCourse,
-    updateCourse,
-    deleteCourse
-}
+
+module.exports = { getCourses, getSpecificCourse, createCourse, updateCourse, deleteCourse }
