@@ -6,6 +6,8 @@ const jwt = require('jsonwebtoken')
 const generateJwt = require('../utils/generateJwt')
 const AppError = require('../utils/appError')
 const cloudinary = require('../config/cloudinary')
+const crypto = require('crypto');
+const { sendVerificationEmail } = require('../services/nodemailer');
 
 const getAllUsers = asyncWrapper(async (req, res, next) => {
     const users = await User.find({}, { '__v': false, 'password': false, '_id': false })
@@ -43,51 +45,84 @@ const addUser = asyncWrapper(async (req, res, next) => {
 
     }
     const hashedPassword = await bcrypt.hash(password, 10)
+
+    const verificationToken = crypto.randomBytes(32).toString('hex')
+    const verificationExpires = new Date(Date.now() + 60 * 1000)
     const newUser = new User({
         firstName,
         lastName,
         email,
         password: hashedPassword,
-        avatar: avatarUrl
+        avatar: avatarUrl,
+        verificationToken,
+        verificationExpires
     })
 
     await newUser.save()
+    await sendVerificationEmail(email, verificationToken)
 
-    const accessToken = generateJwt({ id: newUser._id, role: newUser.role }, '1m')
-    const refreshToken = generateJwt({ id: newUser._id, role: newUser.role }, '10m')
-    res.cookie('token', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production', // true in production only
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 10 * 60 * 1000, // 10 minute,
-        path: '/'
-    })
     res.status(201).json({
         status: httpStatus.SUCCESS,
         data: {
-            user: {
-                firstName: newUser.firstName,
-                lastName: newUser.lastName,
-                role: newUser.role,
-                token: accessToken
-            },
-            data: {
-                message: "user created"
-            }
+            message: 'Registration successful! Please check your email to confirm your account.'
         }
 
     })
 }
 )
 
+const verifyAccount = asyncWrapper(async (req, res, next) => {
+    const { token } = req.query
+
+    const user = await User.findOne({
+        verificationToken: token,
+        verificationExpires: { $gt: Date.now() },
+    })
+
+    if (!user) {
+        return next(new AppError('Invalid or expired token', 400, httpStatus.FAIL))
+    }
+
+    user.isVerified = true
+    user.verificationToken = undefined
+    user.verificationExpires = undefined
+    await user.save()
+
+    const accessToken = generateJwt({ id: user._id, role: user.role }, '1m')
+    const refreshToken = generateJwt({ id: user._id, role: user.role }, '10m')
+
+    res.cookie('token', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 10 * 60 * 1000,
+        path: '/'
+    })
+
+    res.status(200).json({
+        status: httpStatus.SUCCESS,
+        data: {
+            user: {
+                firstName: user.firstName,
+                lastName: user.lastName,
+                role: user.role,
+                token: accessToken
+            }
+        }
+    })
+})
+
 const logInUser = asyncWrapper(async (req, res, next) => {
+
     const email = req.body.email
     const password = req.body.password
     const user = await User.findOne({ email: email })
     if (!user) {
         return next(new AppError('there no user  with credentials', 404, httpStatus.FAIL))
     }
-
+    if (!user.isVerified) {
+        return next(new AppError('Please verify your email first', 403, httpStatus.FAIL))
+    }
     const matchPassword = await bcrypt.compare(password, user.password)
     if (!matchPassword) {
         return next(new AppError('password is wrong', 400, httpStatus.FAIL))
@@ -174,6 +209,7 @@ module.exports = {
     logInUser,
     changeRole,
     refresh,
-    logout
+    logout,
+    verifyAccount
 
 }

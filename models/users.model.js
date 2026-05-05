@@ -32,6 +32,15 @@ const userSchema = new mongoose.Schema({
     },
     avatar: {
         type: String
+    },
+    isVerified: {          // 👈 ADD THIS
+        type: Boolean,
+        default: false
+    },
+    verificationToken: { type: String },
+    verificationExpires: {
+        type: Date,
+        index: { expires: 0 }  // 👈 auto delete when this date passes
     }
 })
 

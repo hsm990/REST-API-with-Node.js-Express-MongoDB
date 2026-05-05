@@ -24,4 +24,6 @@ router.route('/refresh')
 
 router.route('/logout')
     .post(userMethod.logout)
+router.route('/verify-email')
+    .get(userMethod.verifyAccount)
 module.exports = router
