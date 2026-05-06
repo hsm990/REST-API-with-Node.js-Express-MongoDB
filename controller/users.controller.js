@@ -99,17 +99,9 @@ const verifyAccount = asyncWrapper(async (req, res, next) => {
         path: '/'
     })
 
-    res.status(200).json({
-        status: httpStatus.SUCCESS,
-        data: {
-            user: {
-                firstName: user.firstName,
-                lastName: user.lastName,
-                role: user.role,
-                token: accessToken
-            }
-        }
-    })
+    return res.redirect(
+        `${process.env.CLIENT_URL}`
+    )
 })
 
 const logInUser = asyncWrapper(async (req, res, next) => {
