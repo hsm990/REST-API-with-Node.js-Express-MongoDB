@@ -7,6 +7,32 @@ const courseSchema = new mongoose.Schema({
         default: 'Untitled'
     }
     ,
+    description: {
+        type: String,
+        required: true
+    },
+    instructor: {
+        type: String,
+        required: true
+    },
+    videos: [{
+        title: {
+            type: String,
+            required: true
+        },
+
+        videoUrl: {
+            type: String,
+            required: true
+        },
+
+        duration: {
+            type: Number
+        }
+    }],
+    category: {
+        type: String
+    },
     price: {
         type: Number,
         required: true
