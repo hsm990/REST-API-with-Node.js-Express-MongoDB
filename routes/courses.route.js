@@ -14,7 +14,7 @@ router.route('/')
 
 
 router.route('/:id')
-    .get(verfiyToken, coursesMethod.getSpecificCourse)
+    .get(coursesMethod.getSpecificCourse)
     .patch(verfiyToken, allowedTo(userRoles.ADMIN, userRoles.MANAGER), coursesMethod.updateCourse)
     .delete(verfiyToken, allowedTo(userRoles.ADMIN, userRoles.MANAGER), coursesMethod.deleteCourse)
 
