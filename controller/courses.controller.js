@@ -44,8 +44,8 @@ const createCourse = asyncWrapper(async (req, res, next) => {
     }
 
     // Destructure only the fields your schema expects
-    const { title, description, price, instructor } = req.body
-    const course = new Course({ title, description, price, instructor })
+    const { title, description, price, instructor, category } = req.body
+    const course = new Course({ title, description, price, instructor, category })
     await course.save()
 
     return res.status(201).json({
