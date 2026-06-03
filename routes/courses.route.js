@@ -13,9 +13,16 @@ router.route('/')
     .post(verfiyToken, validation(), allowedTo(userRoles.ADMIN, userRoles.MANAGER), coursesMethod.createCourse)
 
 
+router.route('/stats/enrollments')
+    .get(verfiyToken, coursesMethod.getInstructorEnrollmentStats)
+
 router.route('/:id')
     .get(coursesMethod.getSpecificCourse)
     .patch(verfiyToken, allowedTo(userRoles.ADMIN, userRoles.MANAGER), coursesMethod.updateCourse)
     .delete(verfiyToken, allowedTo(userRoles.ADMIN, userRoles.MANAGER), coursesMethod.deleteCourse)
+
+router.route('/:id/enroll')
+    .post(verfiyToken, coursesMethod.enrollInCourse)
+    .delete(verfiyToken, coursesMethod.unenrollFromCourse)
 
 module.exports = router

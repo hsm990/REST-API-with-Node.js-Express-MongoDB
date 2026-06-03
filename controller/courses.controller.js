@@ -1,5 +1,7 @@
 const { validationResult } = require('express-validator')
 const Course = require('../models/courses.model')
+const Enrollment = require('../models/enrollments.model')
+const User = require('../models/users.model')
 const httpStatus = require('../utils/httpStatus')
 const asyncWrapper = require('../middleware/asyncWrapper')
 const AppError = require('../utils/appError')
@@ -87,4 +89,92 @@ const deleteCourse = asyncWrapper(async (req, res, next) => {
     })
 })
 
-module.exports = { getCourses, getSpecificCourse, createCourse, updateCourse, deleteCourse }
+// POST /courses/:id/enroll
+const enrollInCourse = asyncWrapper(async (req, res, next) => {
+    const course = await Course.findById(req.params.id)
+    if (!course) {
+        return next(new AppError('course not found', 404, httpStatus.FAIL))
+    }
+
+    const userId = req.user.id
+    try {
+        const enrollment = await Enrollment.create({ user: userId, course: course._id })
+        return res.status(201).json({
+            status: httpStatus.SUCCESS,
+            data: { enrollment }
+        })
+    } catch (err) {
+        if (err.code === 11000) {
+            return next(new AppError('already enrolled in this course', 409, httpStatus.FAIL))
+        }
+        return next(err)
+    }
+})
+
+// DELETE /courses/:id/enroll
+const unenrollFromCourse = asyncWrapper(async (req, res, next) => {
+    const course = await Course.findById(req.params.id)
+    if (!course) {
+        return next(new AppError('course not found', 404, httpStatus.FAIL))
+    }
+
+    const result = await Enrollment.findOneAndDelete({
+        user: req.user.id,
+        course: course._id
+    })
+    if (!result) {
+        return next(new AppError('not enrolled in this course', 404, httpStatus.FAIL))
+    }
+
+    return res.status(200).json({
+        status: httpStatus.SUCCESS,
+        message: 'unenrolled successfully'
+    })
+})
+
+// GET /courses/stats/enrollments
+const getInstructorEnrollmentStats = asyncWrapper(async (req, res, next) => {
+    const user = await User.findById(req.user.id)
+    if (!user) {
+        return next(new AppError('user not found', 404, httpStatus.FAIL))
+    }
+
+    const instructorName = `${user.firstName} ${user.lastName}`.trim()
+    const myCourses = await Course.find({ instructor: instructorName }, { _id: 1, title: 1 })
+    const courseIds = myCourses.map(c => c._id)
+
+    const perCourse = await Enrollment.aggregate([
+        { $match: { course: { $in: courseIds } } },
+        { $group: { _id: '$course', count: { $sum: 1 } } }
+    ])
+
+    const countMap = new Map(perCourse.map(p => [String(p._id), p.count]))
+    const breakdown = myCourses.map(c => ({
+        courseId: c._id,
+        title: c.title,
+        enrollments: countMap.get(String(c._id)) || 0
+    }))
+
+    const total = breakdown.reduce((sum, c) => sum + c.enrollments, 0)
+
+    return res.json({
+        status: httpStatus.SUCCESS,
+        data: {
+            instructor: instructorName,
+            totalUniqueEnrollments: total,
+            coursesCount: myCourses.length,
+            breakdown
+        }
+    })
+})
+
+module.exports = {
+    getCourses,
+    getSpecificCourse,
+    createCourse,
+    updateCourse,
+    deleteCourse,
+    enrollInCourse,
+    unenrollFromCourse,
+    getInstructorEnrollmentStats
+}
